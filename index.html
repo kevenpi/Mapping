@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPU Compute Market Map</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0a0e17;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+        .header {
+            text-align: center;
+            padding: 32px 24px 8px;
+        }
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 6px;
+        }
+        .header p {
+            color: #8892a4;
+            font-size: 14px;
+        }
+        #chart {
+            width: 100%;
+            max-width: 1200px;
+            height: 700px;
+            margin: 0 auto;
+        }
+        .legend-bar {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            padding: 8px 24px 24px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #8892a4;
+        }
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        .info-panel {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #151b2b;
+            border: 1px solid #2a3352;
+            border-radius: 12px;
+            padding: 28px;
+            max-width: 420px;
+            width: 90%;
+            z-index: 1000;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+        }
+        .info-panel h3 {
+            font-size: 20px;
+            margin-bottom: 4px;
+            color: #fff;
+        }
+        .info-panel .category-tag {
+            display: inline-block;
+            font-size: 11px;
+            padding: 2px 10px;
+            border-radius: 12px;
+            margin-bottom: 14px;
+        }
+        .info-panel .details {
+            font-size: 13px;
+            line-height: 1.7;
+            color: #a0aabe;
+        }
+        .info-panel .details strong { color: #cbd5e1; }
+        .info-panel .close-btn {
+            position: absolute;
+            top: 12px;
+            right: 16px;
+            background: none;
+            border: none;
+            color: #64748b;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        .overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>GPU Compute Market Map</h1>
+    <p>Centralization vs. Maturity &middot; Bubble size = Revenue/ARR &middot; Click any company for details</p>
+</div>
+
+<div id="chart"></div>
+
+<div class="legend-bar" id="legend"></div>
+
+<div class="overlay" id="overlay" onclick="closePanel()"></div>
+<div class="info-panel" id="infoPanel">
+    <button class="close-btn" onclick="closePanel()">&times;</button>
+    <h3 id="panelName"></h3>
+    <span class="category-tag" id="panelTag"></span>
+    <div class="details" id="panelDetails"></div>
+</div>
+
+<script>
+const CATEGORIES = {
+    'Enterprise Clouds':  '#3b82f6',
+    'GPU Marketplaces':   '#10b981',
+    'Hybrid Platforms':   '#f59e0b',
+    'DePIN / Web3':       '#ef4444',
+    'Derivatives & Tools':'#a78bfa',
+    'Related Infra':      '#ec4899'
+};
+
+// Company data: [name, x (centralized 1 → decentralized 10), y (pre-rev 1 → public 10), revenue $M, category, description]
+const companies = [
+    // Enterprise Clouds
+    ['AWS (EC2/GPU)',        1.0, 10,  8000, 'Enterprise Clouds',  'Dominant hyperscaler GPU offering. P5/Trainium instances. ~$8B+ GPU compute ARR estimate.'],
+    ['Google Cloud (GCP)',   1.2,  10, 5000, 'Enterprise Clouds',  'TPU v5 + NVIDIA GPUs. Strong AI/ML platform with Vertex AI integration.'],
+    ['Microsoft Azure',     1.1, 10,  6000, 'Enterprise Clouds',  'Major GPU cloud via NVIDIA partnership. Powers OpenAI workloads.'],
+    ['Oracle Cloud (OCI)',  1.5,  9,  2000, 'Enterprise Clouds',  'Aggressive GPU pricing. Large bare-metal GPU clusters for AI training.'],
+    ['CoreWeave',           2.0,  6,  1600, 'Enterprise Clouds',  'GPU-specialized cloud. NVIDIA-backed. ~$1.6B ARR. IPO-track.'],
+    ['Lambda Labs',         2.2,  5,   200, 'Enterprise Clouds',  'GPU cloud for AI researchers. On-demand H100/A100 clusters.'],
+    ['Crusoe Energy',       2.5,  4,   150, 'Enterprise Clouds',  'Clean-energy GPU cloud. Uses stranded natural gas for sustainable compute.'],
+
+    // GPU Marketplaces
+    ['Together AI',         4.0,  5,   300, 'GPU Marketplaces',   'AI inference & fine-tuning platform. Open-source model hosting.'],
+    ['Vast.ai',             6.0,  4,    50, 'GPU Marketplaces',   'Consumer & datacenter GPU marketplace. Low-cost spot instances.'],
+    ['RunPod',              5.0,  4,   100, 'GPU Marketplaces',   'Serverless GPU cloud. Popular with indie AI developers.'],
+    ['Fluidstack',          5.5,  3,    30, 'GPU Marketplaces',   'Distributed GPU marketplace aggregating data centers globally.'],
+    ['Salad',               6.5,  3,    20, 'GPU Marketplaces',   'Consumer GPU network for AI inference. 10K+ distributed nodes.'],
+    ['SF Compute',          4.5,  2,    10, 'GPU Marketplaces',   'GPU compute brokerage. Matches supply with AI demand.'],
+
+    // Hybrid Platforms
+    ['Paperspace (DigitalOcean)', 3.0, 6, 80, 'Hybrid Platforms', 'Acquired by DigitalOcean. GPU VMs + Gradient ML platform.'],
+    ['Vultr',               3.5,  6,   200, 'Hybrid Platforms',   'Cloud provider adding GPU instances. NVIDIA HGX partnerships.'],
+    ['Cirrascale',          2.8,  5,    60, 'Hybrid Platforms',   'Bare-metal GPU hosting. Multi-GPU training clusters.'],
+    ['Oblivus Cloud',       4.0,  2,     8, 'Hybrid Platforms',   'Privacy-focused GPU cloud. European data sovereignty.'],
+
+    // DePIN / Web3
+    ['Render Network',      8.0,  5,    80, 'DePIN / Web3',      'Decentralized GPU rendering. RNDR token. Migrated to Solana.'],
+    ['Akash Network',       8.5,  4,    15, 'DePIN / Web3',      'Decentralized cloud marketplace. AKT token. Open-source.'],
+    ['Nosana',              8.0,  2,     5, 'DePIN / Web3',      'Solana-based GPU grid for AI inference. NOS token.'],
+    ['io.net',              9.0,  3,    10, 'DePIN / Web3',      'Aggregates GPUs from data centers + crypto miners. IO token.'],
+    ['Aethir',              8.5,  3,    20, 'DePIN / Web3',      'Enterprise-grade decentralized GPU cloud. ATH token.'],
+    ['Gensyn',              7.5,  2,     3, 'DePIN / Web3',      'Decentralized ML training protocol. Verification layer for compute.'],
+    ['Spheron',             7.0,  2,     4, 'DePIN / Web3',      'Decentralized compute marketplace. Multi-chain deployment.'],
+
+    // Derivatives & Tools
+    ['Modal',               3.0,  4,    80, 'Derivatives & Tools','Serverless compute for AI. Python-native cloud functions on GPUs.'],
+    ['Banana.dev',          4.0,  3,    10, 'Derivatives & Tools','ML inference hosting. Serverless GPU endpoints. (Pivoting)'],
+    ['Beam',                3.5,  2,     5, 'Derivatives & Tools','Serverless GPU runtime. Deploy ML models as APIs.'],
+    ['Brev.dev',            3.0,  2,     4, 'Derivatives & Tools','GPU dev environments. One-click fine-tuning notebooks.'],
+    ['Anyscale',            2.5,  5,   100, 'Derivatives & Tools','Ray-based distributed compute. AI training orchestration.'],
+    ['Replicate',           3.5,  4,    50, 'Derivatives & Tools','Run open-source ML models via API. Simple inference hosting.'],
+
+    // Related Infra
+    ['NVIDIA (DGX Cloud)',  1.5,  10, 25000,'Related Infra',      'GPU hardware + DGX Cloud service. Dominant AI silicon provider.'],
+    ['AMD (Instinct)',      1.5,  10, 3000, 'Related Infra',      'MI300X GPUs challenging NVIDIA. ROCm software ecosystem.'],
+    ['Cerebras',            2.0,  5,   100, 'Related Infra',      'Wafer-scale AI chip. CS-3 system. Inference & training.'],
+    ['Groq',                2.0,  4,    50, 'Related Infra',      'LPU inference chips. Ultra-fast inference. Custom silicon.'],
+    ['SambaNova',           2.0,  5,    80, 'Related Infra',      'Dataflow AI chip. Enterprise AI platform. SN40L.'],
+];
+
+// Build traces per category
+const traces = [];
+for (const [cat, color] of Object.entries(CATEGORIES)) {
+    const subset = companies.filter(c => c[4] === cat);
+    if (!subset.length) continue;
+
+    const maxRev = Math.max(...companies.map(c => c[3]));
+    const sizes = subset.map(c => Math.max(12, Math.sqrt(c[3] / maxRev) * 70));
+
+    traces.push({
+        x: subset.map(c => c[1]),
+        y: subset.map(c => c[2]),
+        text: subset.map(c => c[0]),
+        customdata: subset.map(c => [c[0], c[3], c[4], c[5]]),
+        hovertemplate: '<b>%{text}</b><br>Revenue: $%{customdata[1]}M<br>%{customdata[3]}<extra></extra>',
+        mode: 'markers+text',
+        type: 'scatter',
+        name: cat,
+        textposition: 'top center',
+        textfont: { size: 9, color: '#8892a4' },
+        marker: {
+            size: sizes,
+            color: color,
+            opacity: 0.75,
+            line: { color: color, width: 1.5 },
+            sizemode: 'diameter'
+        },
+        showlegend: false
+    });
+}
+
+const layout = {
+    paper_bgcolor: '#0a0e17',
+    plot_bgcolor: '#0f1524',
+    font: { color: '#8892a4', family: 'Inter, sans-serif' },
+    xaxis: {
+        title: { text: '← Centralized ———————— Decentralized →', font: { size: 13, color: '#64748b' } },
+        range: [0, 10.5],
+        dtick: 1,
+        gridcolor: '#1a2235',
+        zerolinecolor: '#1a2235',
+        tickfont: { size: 10 }
+    },
+    yaxis: {
+        title: { text: '← Pre-Revenue ———————— Public →', font: { size: 13, color: '#64748b' } },
+        range: [0, 11],
+        dtick: 1,
+        gridcolor: '#1a2235',
+        zerolinecolor: '#1a2235',
+        tickfont: { size: 10 }
+    },
+    margin: { l: 70, r: 30, t: 20, b: 60 },
+    hovermode: 'closest',
+    dragmode: 'pan'
+};
+
+const config = {
+    responsive: true,
+    displayModeBar: true,
+    modeBarButtonsToRemove: ['select2d', 'lasso2d', 'autoScale2d'],
+    displaylogo: false
+};
+
+Plotly.newPlot('chart', traces, layout, config);
+
+// Click handler for info panel
+document.getElementById('chart').on('plotly_click', function(data) {
+    const pt = data.points[0];
+    const [name, rev, cat, desc] = pt.customdata;
+    const color = CATEGORIES[cat];
+    document.getElementById('panelName').textContent = name;
+    const tag = document.getElementById('panelTag');
+    tag.textContent = cat;
+    tag.style.background = color + '22';
+    tag.style.color = color;
+    document.getElementById('panelDetails').innerHTML =
+        `<strong>Revenue / ARR:</strong> $${rev.toLocaleString()}M<br>` +
+        `<strong>Centralization:</strong> ${pt.x.toFixed(1)} / 10<br>` +
+        `<strong>Maturity:</strong> ${pt.y.toFixed(1)} / 10<br><br>` +
+        desc;
+    document.getElementById('overlay').style.display = 'block';
+    document.getElementById('infoPanel').style.display = 'block';
+});
+
+function closePanel() {
+    document.getElementById('overlay').style.display = 'none';
+    document.getElementById('infoPanel').style.display = 'none';
+}
+
+// Build legend
+const legendEl = document.getElementById('legend');
+for (const [cat, color] of Object.entries(CATEGORIES)) {
+    legendEl.innerHTML += `<div class="legend-item"><span class="legend-dot" style="background:${color}"></span>${cat}</div>`;
+}
+</script>
+</body>
+</html>
