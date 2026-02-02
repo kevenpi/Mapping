@@ -129,94 +129,102 @@
 
 <script>
 const CATEGORIES = {
-    'Enterprise Clouds':  '#3b82f6',
-    'GPU Marketplaces':   '#10b981',
-    'Hybrid Platforms':   '#f59e0b',
-    'DePIN / Web3':       '#ef4444',
-    'Derivatives & Tools':'#a78bfa',
-    'Related Infra':      '#ec4899'
+    'Enterprise Clouds':     '#3b82f6',
+    'GPU Marketplaces':      '#10b981',
+    'Hybrid Models':         '#f59e0b',
+    'DePIN Networks':        '#ef4444',
+    'Financial Derivatives': '#a78bfa',
+    'Related Platforms':     '#ec4899'
 };
 
-// Company data: [name, x (centralized 1 → decentralized 10), y (pre-rev 1 → public 10), revenue $M, category, description]
-const companies = [
-    // Enterprise Clouds
-    ['AWS (EC2/GPU)',        1.0, 10,  8000, 'Enterprise Clouds',  'Dominant hyperscaler GPU offering. P5/Trainium instances. ~$8B+ GPU compute ARR estimate.'],
-    ['Google Cloud (GCP)',   1.2,  10, 5000, 'Enterprise Clouds',  'TPU v5 + NVIDIA GPUs. Strong AI/ML platform with Vertex AI integration.'],
-    ['Microsoft Azure',     1.1, 10,  6000, 'Enterprise Clouds',  'Major GPU cloud via NVIDIA partnership. Powers OpenAI workloads.'],
-    ['Oracle Cloud (OCI)',  1.5,  9,  2000, 'Enterprise Clouds',  'Aggressive GPU pricing. Large bare-metal GPU clusters for AI training.'],
-    ['CoreWeave',           2.0,  6,  1600, 'Enterprise Clouds',  'GPU-specialized cloud. NVIDIA-backed. ~$1.6B ARR. IPO-track.'],
-    ['Lambda Labs',         2.2,  5,   200, 'Enterprise Clouds',  'GPU cloud for AI researchers. On-demand H100/A100 clusters.'],
-    ['Crusoe Energy',       2.5,  4,   150, 'Enterprise Clouds',  'Clean-energy GPU cloud. Uses stranded natural gas for sustainable compute.'],
+function parseCSV(text) {
+    const lines = text.split('\n').filter(l => l.trim());
+    const headers = [];
+    let current = '', inQuotes = false;
+    for (const ch of lines[0]) {
+        if (ch === '"') { inQuotes = !inQuotes; }
+        else if (ch === ',' && !inQuotes) { headers.push(current.trim()); current = ''; }
+        else { current += ch; }
+    }
+    headers.push(current.trim());
 
-    // GPU Marketplaces
-    ['Together AI',         4.0,  5,   300, 'GPU Marketplaces',   'AI inference & fine-tuning platform. Open-source model hosting.'],
-    ['Vast.ai',             6.0,  4,    50, 'GPU Marketplaces',   'Consumer & datacenter GPU marketplace. Low-cost spot instances.'],
-    ['RunPod',              5.0,  4,   100, 'GPU Marketplaces',   'Serverless GPU cloud. Popular with indie AI developers.'],
-    ['Fluidstack',          5.5,  3,    30, 'GPU Marketplaces',   'Distributed GPU marketplace aggregating data centers globally.'],
-    ['Salad',               6.5,  3,    20, 'GPU Marketplaces',   'Consumer GPU network for AI inference. 10K+ distributed nodes.'],
-    ['SF Compute',          4.5,  2,    10, 'GPU Marketplaces',   'GPU compute brokerage. Matches supply with AI demand.'],
-
-    // Hybrid Platforms
-    ['Paperspace (DigitalOcean)', 3.0, 6, 80, 'Hybrid Platforms', 'Acquired by DigitalOcean. GPU VMs + Gradient ML platform.'],
-    ['Vultr',               3.5,  6,   200, 'Hybrid Platforms',   'Cloud provider adding GPU instances. NVIDIA HGX partnerships.'],
-    ['Cirrascale',          2.8,  5,    60, 'Hybrid Platforms',   'Bare-metal GPU hosting. Multi-GPU training clusters.'],
-    ['Oblivus Cloud',       4.0,  2,     8, 'Hybrid Platforms',   'Privacy-focused GPU cloud. European data sovereignty.'],
-
-    // DePIN / Web3
-    ['Render Network',      8.0,  5,    80, 'DePIN / Web3',      'Decentralized GPU rendering. RNDR token. Migrated to Solana.'],
-    ['Akash Network',       8.5,  4,    15, 'DePIN / Web3',      'Decentralized cloud marketplace. AKT token. Open-source.'],
-    ['Nosana',              8.0,  2,     5, 'DePIN / Web3',      'Solana-based GPU grid for AI inference. NOS token.'],
-    ['io.net',              9.0,  3,    10, 'DePIN / Web3',      'Aggregates GPUs from data centers + crypto miners. IO token.'],
-    ['Aethir',              8.5,  3,    20, 'DePIN / Web3',      'Enterprise-grade decentralized GPU cloud. ATH token.'],
-    ['Gensyn',              7.5,  2,     3, 'DePIN / Web3',      'Decentralized ML training protocol. Verification layer for compute.'],
-    ['Spheron',             7.0,  2,     4, 'DePIN / Web3',      'Decentralized compute marketplace. Multi-chain deployment.'],
-
-    // Derivatives & Tools
-    ['Modal',               3.0,  4,    80, 'Derivatives & Tools','Serverless compute for AI. Python-native cloud functions on GPUs.'],
-    ['Banana.dev',          4.0,  3,    10, 'Derivatives & Tools','ML inference hosting. Serverless GPU endpoints. (Pivoting)'],
-    ['Beam',                3.5,  2,     5, 'Derivatives & Tools','Serverless GPU runtime. Deploy ML models as APIs.'],
-    ['Brev.dev',            3.0,  2,     4, 'Derivatives & Tools','GPU dev environments. One-click fine-tuning notebooks.'],
-    ['Anyscale',            2.5,  5,   100, 'Derivatives & Tools','Ray-based distributed compute. AI training orchestration.'],
-    ['Replicate',           3.5,  4,    50, 'Derivatives & Tools','Run open-source ML models via API. Simple inference hosting.'],
-
-    // Related Infra
-    ['NVIDIA (DGX Cloud)',  1.5,  10, 25000,'Related Infra',      'GPU hardware + DGX Cloud service. Dominant AI silicon provider.'],
-    ['AMD (Instinct)',      1.5,  10, 3000, 'Related Infra',      'MI300X GPUs challenging NVIDIA. ROCm software ecosystem.'],
-    ['Cerebras',            2.0,  5,   100, 'Related Infra',      'Wafer-scale AI chip. CS-3 system. Inference & training.'],
-    ['Groq',                2.0,  4,    50, 'Related Infra',      'LPU inference chips. Ultra-fast inference. Custom silicon.'],
-    ['SambaNova',           2.0,  5,    80, 'Related Infra',      'Dataflow AI chip. Enterprise AI platform. SN40L.'],
-];
-
-// Build traces per category
-const traces = [];
-for (const [cat, color] of Object.entries(CATEGORIES)) {
-    const subset = companies.filter(c => c[4] === cat);
-    if (!subset.length) continue;
-
-    const maxRev = Math.max(...companies.map(c => c[3]));
-    const sizes = subset.map(c => Math.max(12, Math.sqrt(c[3] / maxRev) * 70));
-
-    traces.push({
-        x: subset.map(c => c[1]),
-        y: subset.map(c => c[2]),
-        text: subset.map(c => c[0]),
-        customdata: subset.map(c => [c[0], c[3], c[4], c[5]]),
-        hovertemplate: '<b>%{text}</b><br>Revenue: $%{customdata[1]}M<br>%{customdata[3]}<extra></extra>',
-        mode: 'markers+text',
-        type: 'scatter',
-        name: cat,
-        textposition: 'top center',
-        textfont: { size: 9, color: '#8892a4' },
-        marker: {
-            size: sizes,
-            color: color,
-            opacity: 0.75,
-            line: { color: color, width: 1.5 },
-            sizemode: 'diameter'
-        },
-        showlegend: false
+    return lines.slice(1).map(line => {
+        const vals = []; let cur = '', inQ = false;
+        for (const ch of line) {
+            if (ch === '"') { inQ = !inQ; }
+            else if (ch === ',' && !inQ) { vals.push(cur.trim()); cur = ''; }
+            else { cur += ch; }
+        }
+        vals.push(cur.trim());
+        const obj = {};
+        headers.forEach((h, i) => obj[h] = vals[i] || '');
+        return obj;
     });
 }
+
+function parseRevenue(str) {
+    if (!str || str === '0') return 0;
+    // Take first number from strings like "500-600" or "50-100"
+    const m = str.match(/[\d.]+/);
+    return m ? parseFloat(m[0]) : 0;
+}
+
+async function init() {
+    let rows;
+    try {
+        const resp = await fetch('gpu_companies.csv');
+        const text = await resp.text();
+        rows = parseCSV(text);
+    } catch(e) {
+        document.getElementById('chart').innerHTML = '<p style="color:#ef4444;text-align:center;padding:40px">Failed to load gpu_companies.csv. Make sure the file is served via HTTP (not file://).</p>';
+        return;
+    }
+
+    const companies = rows.map(r => ({
+        name: r.name,
+        x: parseFloat(r.centralization_score) || 5,
+        y: parseFloat(r.maturity_score) || 5,
+        rev: parseRevenue(r.revenue_arr_M),
+        cat: r.category,
+        desc: r.description,
+        website: r.website,
+        status: r.status,
+        funding: r.total_funding_M,
+        growth: r.yoy_growth_pct,
+        gpu_types: r.gpu_types,
+        pricing: r.pricing_per_hour,
+        token: r.token
+    }));
+
+    const maxRev = Math.max(...companies.map(c => c.rev), 1);
+    const traces = [];
+
+    for (const [cat, color] of Object.entries(CATEGORIES)) {
+        const subset = companies.filter(c => c.cat === cat);
+        if (!subset.length) continue;
+        const sizes = subset.map(c => Math.max(12, Math.sqrt(c.rev / maxRev) * 70));
+
+        traces.push({
+            x: subset.map(c => c.x),
+            y: subset.map(c => c.y),
+            text: subset.map(c => c.name),
+            customdata: subset.map(c => [c.name, c.rev, c.cat, c.desc, c.website, c.status, c.funding, c.growth, c.gpu_types, c.pricing, c.token]),
+            hovertemplate: '<b>%{text}</b><br>Revenue: $%{customdata[1]}M<br>%{customdata[3]}<extra></extra>',
+            mode: 'markers+text',
+            type: 'scatter',
+            name: cat,
+            textposition: 'top center',
+            textfont: { size: 9, color: '#8892a4' },
+            marker: {
+                size: sizes,
+                color: color,
+                opacity: 0.75,
+                line: { color: color, width: 1.5 },
+                sizemode: 'diameter'
+            },
+            showlegend: false
+        });
+    }
 
 const layout = {
     paper_bgcolor: '#0a0e17',
@@ -250,26 +258,38 @@ const config = {
     displaylogo: false
 };
 
-Plotly.newPlot('chart', traces, layout, config);
+    Plotly.newPlot('chart', traces, layout, config);
 
-// Click handler for info panel
-document.getElementById('chart').on('plotly_click', function(data) {
-    const pt = data.points[0];
-    const [name, rev, cat, desc] = pt.customdata;
-    const color = CATEGORIES[cat];
-    document.getElementById('panelName').textContent = name;
-    const tag = document.getElementById('panelTag');
-    tag.textContent = cat;
-    tag.style.background = color + '22';
-    tag.style.color = color;
-    document.getElementById('panelDetails').innerHTML =
-        `<strong>Revenue / ARR:</strong> $${rev.toLocaleString()}M<br>` +
-        `<strong>Centralization:</strong> ${pt.x.toFixed(1)} / 10<br>` +
-        `<strong>Maturity:</strong> ${pt.y.toFixed(1)} / 10<br><br>` +
-        desc;
-    document.getElementById('overlay').style.display = 'block';
-    document.getElementById('infoPanel').style.display = 'block';
-});
+    // Click handler for info panel
+    document.getElementById('chart').on('plotly_click', function(data) {
+        const pt = data.points[0];
+        const [name, rev, cat, desc, website, status, funding, growth, gpuTypes, pricing, token] = pt.customdata;
+        const color = CATEGORIES[cat];
+        document.getElementById('panelName').textContent = name;
+        const tag = document.getElementById('panelTag');
+        tag.textContent = cat;
+        tag.style.background = color + '22';
+        tag.style.color = color;
+
+        let html = `<strong>Revenue / ARR:</strong> $${Number(rev).toLocaleString()}M<br>`;
+        html += `<strong>Centralization:</strong> ${pt.x.toFixed(1)} / 10<br>`;
+        html += `<strong>Maturity:</strong> ${pt.y.toFixed(1)} / 10<br>`;
+        if (status) html += `<strong>Status:</strong> ${status}<br>`;
+        if (funding) html += `<strong>Funding:</strong> $${funding}M<br>`;
+        if (growth) html += `<strong>YoY Growth:</strong> ${growth}%<br>`;
+        if (gpuTypes) html += `<strong>GPUs:</strong> ${gpuTypes}<br>`;
+        if (pricing) html += `<strong>Pricing:</strong> $${pricing}/hr<br>`;
+        if (token) html += `<strong>Token:</strong> ${token}<br>`;
+        html += `<br>${desc}`;
+        if (website) html += `<br><br><a href="${website}" target="_blank" style="color:${color}">${website}</a>`;
+
+        document.getElementById('panelDetails').innerHTML = html;
+        document.getElementById('overlay').style.display = 'block';
+        document.getElementById('infoPanel').style.display = 'block';
+    });
+}
+
+init();
 
 function closePanel() {
     document.getElementById('overlay').style.display = 'none';
