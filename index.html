@@ -221,6 +221,41 @@ Crusoe Energy,Related Platforms,https://www.crusoe.ai,Vertically integrated ener
         token: r.token
     }));
 
+    // --- Collision detection & nudging ---
+    // Sort by revenue desc so large companies get priority placement
+    const sorted = [...companies].sort((a, b) => b.rev - a.rev);
+    const placed = [];
+    const THRESHOLD_X = 0.8;
+    const THRESHOLD_Y = 0.6;
+
+    for (const c of sorted) {
+        let nx = c.x, ny = c.y;
+        let attempts = 0;
+        while (attempts < 12) {
+            const collider = placed.find(p =>
+                Math.abs(p.x - nx) < THRESHOLD_X && Math.abs(p.y - ny) < THRESHOLD_Y
+            );
+            if (!collider) break;
+            // Nudge horizontally first; if same Y, spread on X
+            if (Math.abs(c.y - collider.origY) < 0.5) {
+                nx += (attempts % 2 === 0 ? 1 : -1) * 0.4 * Math.ceil((attempts + 1) / 2);
+            } else {
+                ny += (attempts % 2 === 0 ? 1 : -1) * 0.3 * Math.ceil((attempts + 1) / 2);
+            }
+            attempts++;
+        }
+        c.dx = nx; c.dy = ny;
+        c.origY = c.y;
+        placed.push({ x: nx, y: ny, origY: c.y, rev: c.rev });
+    }
+
+    // Count nearby neighbors for font size scaling
+    for (const c of companies) {
+        c.neighbors = companies.filter(o =>
+            o !== c && Math.abs(o.dx - c.dx) < 1.2 && Math.abs(o.dy - c.dy) < 1.0
+        ).length;
+    }
+
     const maxRev = Math.max(...companies.map(c => c.rev), 1);
     const traces = [];
 
@@ -230,20 +265,23 @@ Crusoe Energy,Related Platforms,https://www.crusoe.ai,Vertically integrated ener
         const sizes = subset.map(c => Math.max(12, Math.sqrt(c.rev / maxRev) * 70));
 
         traces.push({
-            x: subset.map(c => c.x),
-            y: subset.map(c => c.y),
+            x: subset.map(c => c.dx),
+            y: subset.map(c => c.dy),
             text: subset.map(c => c.name),
             customdata: subset.map(c => [c.name, c.rev, c.cat, c.desc, c.website, c.status, c.funding, c.growth, c.gpu_types, c.pricing, c.token]),
             hovertemplate: '<b>%{text}</b><br>Revenue: $%{customdata[1]}M<br>%{customdata[3]}<extra></extra>',
             mode: 'markers+text',
             type: 'scatter',
             name: cat,
-            textposition: 'top center',
-            textfont: { size: 9, color: '#8892a4' },
+            textposition: subset.map(c => 'bottom center'),
+            textfont: {
+                size: subset.map(c => c.neighbors >= 3 ? 8 : c.neighbors >= 1 ? 9 : 10),
+                color: '#a0aebe'
+            },
             marker: {
                 size: sizes,
                 color: color,
-                opacity: 0.75,
+                opacity: 0.78,
                 line: { color: color, width: 1.5 },
                 sizemode: 'diameter'
             },
